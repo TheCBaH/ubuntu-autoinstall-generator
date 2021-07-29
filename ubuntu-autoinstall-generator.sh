@@ -192,25 +192,29 @@ log "🔧 Extracting ISO image..."
 7z -y x "${source_iso}" -o"$tmpdir" >/dev/null
 rm -rf "$tmpdir/"'[BOOT]'
 log "👍 Extracted to $tmpdir"
+files="isolinux/txt.cfg boot/grub/grub.cfg boot/grub/loopback.cfg"
 
 if [ ${use_hwe_kernel} -eq 1 ]; then
         if grep -q "hwe-vmlinuz" "$tmpdir/boot/grub/grub.cfg"; then
                 log "☑️ Destination ISO will use HWE kernel."
-                sed -i -e 's|/casper/vmlinuz|/casper/hwe-vmlinuz|g' "$tmpdir/isolinux/txt.cfg"
-                sed -i -e 's|/casper/initrd|/casper/hwe-initrd|g' "$tmpdir/isolinux/txt.cfg"
-                sed -i -e 's|/casper/vmlinuz|/casper/hwe-vmlinuz|g' "$tmpdir/boot/grub/grub.cfg"
-                sed -i -e 's|/casper/initrd|/casper/hwe-initrd|g' "$tmpdir/boot/grub/grub.cfg"
-                sed -i -e 's|/casper/vmlinuz|/casper/hwe-vmlinuz|g' "$tmpdir/boot/grub/loopback.cfg"
-                sed -i -e 's|/casper/initrd|/casper/hwe-initrd|g' "$tmpdir/boot/grub/loopback.cfg"
-        else
+                for f in $files; do
+                        sed -i -e 's|/casper/vmlinuz|/casper/hwe-vmlinuz|g' "$tmpdir/$f"
+                        sed -i -e 's|/casper/initrd|/casper/hwe-initrd|g' "$tmpdir/$f"
+                done
+            else
                 log "⚠️ This source ISO does not support the HWE kernel. Proceeding with the regular kernel."
         fi
 fi
-
+serial='console=tty0 console=ttyS0,115200n8'
 log "🧩 Adding autoinstall parameter to kernel command line..."
-sed -i -e 's/---/ autoinstall  ---/g' "$tmpdir/isolinux/txt.cfg"
-sed -i -e 's/---/ autoinstall  ---/g' "$tmpdir/boot/grub/grub.cfg"
-sed -i -e 's/---/ autoinstall  ---/g' "$tmpdir/boot/grub/loopback.cfg"
+for f in $files; do
+        sed -i -e "s/---/ $serial autoinstall ---/g" "$tmpdir/$f"
+        if false; then
+                sed -i -e "s/initrd quiet/initrd debug nomodeset/g" "$tmpdir/$f"
+        else
+                sed -i -e "s/initrd quiet/initrd /g" "$tmpdir/$f"
+        fi
+done
 log "👍 Added parameter to UEFI and BIOS kernel command lines."
 
 if [ ${all_in_one} -eq 1 ]; then
